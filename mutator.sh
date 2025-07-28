@@ -1,57 +1,53 @@
-# For now, $config is likely going to be a .gro or .gro.xtc init config stored in data/topologies
-gro_id=$1
-chainid=$2
+
+gro=$1
+chain=$2
 resid=$3
-mutant=$4
-# mutant=ALA
-workdir=$5
-# Recommended procedure: create a dummy tpr file with grompp by hand nd pass it here
-tpr=$6
+mutant=$4 # $mutant: 3-letter code for the mutant amino acid, e.g., ALA, GLY, etc.
+tpr=$5 # Recommended procedure: create a dummy tpr file with grompp by hand and pass it here
+prot_psf=$6
+output_name=$7
+workdir=$8
 
-raw_output=mutated
-# TODO: chain should be able to be found
-chain=PRO$chainid
+# Settings
+## default paths
+DEFAULT_WORKDIR=~/scratch/research/workspace
+SOURCE_DIR=~/mutator
 
+SYSTEM_GRO=system.gro
+PROT_PDB=protein.pdb
+NONPROTEIN_GRO=nonprotein.gro
+RAW_OUTPUT_NAME=mutated
+MUTATOR=$SOURCE_DIR/run_mutator.tcl
+REBUILDER=$SOURCE_DIR/rebuild_mutant.py
+
+# export setting variables
+export TOPOLOGY_DIR
+export SOURCE_DIR
+export SYSTEM_GRO
+export PROT_PDB
+export NONPROTEIN_GRO
+export RAW_OUTPUT_NAME
+export MUTATOR
+export REBUILDER
+
+# export arguments
+
+
+# If workdir is not provided, use the default
 if [ -z "$workdir" ] ; then
-    workdir=~/scratch/research/workspace
+    workdir=$DEFAULT_WORKDIR
 fi
 cd $workdir
 
-# if [ -z "$tpr" ] ; then
-#     tpr=~/research/data/topologies/step6.0_minimization_11.tpr
-# fi
+# Prepare the system gro file
+# Currently, this just fixes any PBC
+bash $SOURCE_DIR/_prepare_gro.sh $gro $tpr
 
-# Mutator arguments
-mutator=~/research/src/modeling/run_mutator.tcl
-prot_psf=~/research/data/topologies/1_protein_model.psf
+# split the system into protein and non-protein components #
+bash $SOURCE_DIR/_split_gro.sh $SYSTEM_GRO $tpr $PROT_PDB $NONPROTEIN_GRO
 
+# Run the mutator script
+vmd -dispdev none -e $MUTATOR -args $MUTATOR $prot_psf $PROT_PDB $RAW_OUTPUT_NAME $chain $resid $mutant
 
-# This line can fail if the stored format is not gro
-# But the shell script will run the next line just fine
-# TODO: needs full pbc fix
-echo Protein System | gmx trjconv -f ~/research/data/topologies/${gro_id}_init.gro -s $tpr -o system.gro -pbc mol -ur compact -center
-echo Protein System | gmx trjconv -f ~/research/data/topologies/${gro_id}_init.gro.xtc -s $tpr -o system.gro -pbc mol -ur compact -center
-
-# Separate protein and the rest of the system
-# Protein into protein.pdb
-# Rest of the system into nonprotein.gro
-prot_pdb=protein.pdb
-nonprotein_gro=nonprotein.gro
-
-echo Protein | gmx trjconv -f system.gro -s $tpr -o $prot_pdb
-echo non-Protein | gmx trjconv -f system.gro -s $tpr -o $nonprotein_gro
-
-
-
-### This is the part where we mutate the protein ###
-vmd -dispdev none -e $mutator -args $mutator $prot_psf $prot_pdb $raw_output $chain $resid $mutant
-
-output_pdb=rebuilt_mutated.pdb
-# replace protein.pdb with the mutated residue; fix the atom numbering
-# Alternatively (Not used), send back to CHARMM-GUI to generate a new topology and maybe patch terminal groups
-python ~/research/src/modeling/rebuild_mutant.py $resid $prot_pdb ${raw_output}.pdb $output_pdb
-
-# Solvate the mutant protein with all the rest of the system
-gmx solvate -cp $output_pdb -cs $nonprotein_gro -o ${gro_id}_init_${resid}${mutant}.gro -scale 0
-
-# TODO: make up for charge change
+# Rebuild the mutant protein to fix some issues with the mutator output
+bash $SOURCE_DIR/_rebuild_mutant.sh $resid $output_name

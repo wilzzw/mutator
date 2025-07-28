@@ -6,9 +6,9 @@ from biopandas.pdb import PandasPdb
 from sys import argv
 
 resid_mutate = argv[1]
-original_protpdb = argv[2]#'protein.pdb'
-mutated_protpdb = argv[3]#'MUTATED.pdb'
-output_pdb = argv[4]#'rebuilt_mutated.pdb'
+original_protpdb = argv[2] #'protein.pdb'
+mutated_protpdb = argv[3] #'MUTATED.pdb'
+output_pdb = argv[4] #'rebuilt_mutated.pdb'
 
 original_read = PandasPdb().read_pdb(original_protpdb)
 core_df = original_read.df['ATOM']
