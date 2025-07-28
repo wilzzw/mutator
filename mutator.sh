@@ -43,7 +43,7 @@ cd $workdir
 # Currently, this just fixes any PBC
 bash $SOURCE_DIR/_prepare_gro.sh $gro $tpr
 
-# split the system into protein and non-protein components #
+# Split the system into protein and non-protein components #
 bash $SOURCE_DIR/_split_gro.sh $SYSTEM_GRO $tpr $PROT_PDB $NONPROTEIN_GRO
 
 # Run the mutator script
@@ -51,3 +51,10 @@ vmd -dispdev none -e $MUTATOR -args $MUTATOR $prot_psf $PROT_PDB $RAW_OUTPUT_NAM
 
 # Rebuild the mutant protein to fix some issues with the mutator output
 bash $SOURCE_DIR/_rebuild_mutant.sh $resid $output_name
+
+# Remove intermediate files
+rm $PROT_PDB
+rm $NONPROTEIN_GRO
+rm $RAW_OUTPUT_NAME.pdb
+
+rm $SYSTEM_GRO
